@@ -1,0 +1,175 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Advanced OAS Example",
+        "version": "1.0.0"
+    },
+    "paths": {
+        "/validateOneOf": {
+            "patch": {
+                "summary": "Update a pet using oneOf schema",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    { "$ref": "#/components/schemas/SimpleCat" },
+                                    { "$ref": "#/components/schemas/SimpleDog" }
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated"
+                    }
+                }
+            }
+        },
+        "/validateAllOf": {
+            "patch": {
+                "summary": "Update a pet using allOf schema",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    { "$ref": "#/components/schemas/Cat" },
+                                    { "$ref": "#/components/schemas/Dog" }
+                                ],
+                                "discriminator": {
+                                    "propertyName": "pet_type"
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated"
+                    }
+                }
+            }
+        },
+        "/validateAnyOf": {
+            "patch": {
+                "summary": "Update a pet using anyOf schema",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "anyOf": [
+                                    { "$ref": "#/components/schemas/PetByAge" },
+                                    { "$ref": "#/components/schemas/PetByType" }
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated"
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "SimpleDog": {
+                "type": "object",
+                "properties": {
+                    "bark": {
+                        "type": "boolean"
+                    },
+                    "breed": {
+                        "type": "string",
+                        "enum": ["Dingo", "Husky", "Retriever", "Shepherd"]
+                    }
+                }
+            },
+            "SimpleCat": {
+                "type": "object",
+                "properties": {
+                    "hunts": {
+                        "type": "boolean"
+                    },
+                    "age": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "Pet": {
+                "type": "object",
+                "required": ["pet_type"],
+                "properties": {
+                    "pet_type": {
+                        "type": "string"
+                    }
+                },
+                "discriminator": {
+                    "propertyName": "pet_type"
+                }
+            },
+            "Dog": {
+                "allOf": [
+                    { "$ref": "#/components/schemas/Pet" },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "bark": {
+                                "type": "boolean"
+                            },
+                            "breed": {
+                                "type": "string",
+                                "enum": ["Dingo", "Husky", "Retriever", "Shepherd"]
+                            }
+                        }
+                    }
+                ]
+            },
+            "Cat": {
+                "allOf": [
+                    { "$ref": "#/components/schemas/Pet" },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "hunts": {
+                                "type": "boolean"
+                            },
+                            "age": {
+                                "type": "integer"
+                            }
+                        }
+                    }
+                ]
+            },
+            "PetByAge": {
+                "type": "object",
+                "properties": {
+                    "age": {
+                        "type": "integer"
+                    },
+                    "nickname": {
+                        "type": "string"
+                    }
+                },
+                "required": ["age"]
+            },
+            "PetByType": {
+                "type": "object",
+                "properties": {
+                    "pet_type": {
+                        "type": "string",
+                        "enum": ["Cat", "Dog"]
+                    },
+                    "hunts": {
+                        "type": "boolean"
+                    }
+                },
+                "required": ["pet_type"]
+            }
+        }
+    }
+}
