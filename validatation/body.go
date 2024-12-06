@@ -50,7 +50,7 @@ func (v *DefaultValidator) ValidateRequestBody(req *http.Request, route string) 
 	}
 
 	// Validate request body against schema
-	if !v.validateSchema(body, *mediaType.Schema) {
+	if !v.ValidateSchema(body, *mediaType.Schema) {
 		return false, fmt.Errorf("request body does not match schema")
 	}
 

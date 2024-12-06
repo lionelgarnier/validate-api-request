@@ -1,8 +1,8 @@
 package validation
 
 import (
+	"encoding/json"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -13,15 +13,12 @@ import (
 
 func TestValidateRequest(t *testing.T) {
 	parser := oas.NewParser()
-	pwd, _ := os.Getwd()
-	t.Logf("Current working directory: %s", pwd)
 
 	filePath := filepath.Join("..", "test_data", "petstore3.swagger.io_api_json.json")
-
-	_, err := parser.LoadFromFile(filePath)
+	_, err := parser.LoadOasFromFile(filePath)
 	assert.NoError(t, err)
 
-	spec, err := parser.Parse()
+	spec, err := parser.GetSchema()
 	assert.NoError(t, err)
 
 	tests := []struct {
@@ -100,4 +97,155 @@ func TestValidateRequest(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestComplexRequest(t *testing.T) {
+	parser := oas.NewParser()
+
+	filePath := filepath.Join("..", "test_data", "advancedoas.swagger.io.json")
+	_, err := parser.LoadOasFromFile(filePath)
+	assert.NoError(t, err)
+
+	spec, err := parser.Parse()
+	assert.NoError(t, err)
+
+	tests := []struct {
+		name       string
+		path       string
+		method     string
+		headers    map[string]string
+		query      map[string]string
+		body       string
+		wantErr    bool
+		wantErrMsg string
+	}{
+		{
+			name:    "Valid - Cat with age",
+			path:    "/validateAllOf",
+			method:  http.MethodPatch,
+			headers: map[string]string{"Content-Type": "application/json"},
+			body: `{
+                "pet_type": "Cat",
+                "age": 3
+            }`,
+			wantErr:    false,
+			wantErrMsg: "",
+		},
+		{
+			name:    "Valid - Dog with bark",
+			path:    "/validateAllOf",
+			method:  http.MethodPatch,
+			headers: map[string]string{"Content-Type": "application/json"},
+			body: `{
+                "pet_type": "Dog",
+                "bark": true
+            }`,
+			wantErr:    false,
+			wantErrMsg: "",
+		},
+		{
+			name:    "Valid - Dog with bark and breed",
+			path:    "/validateAllOf",
+			method:  http.MethodPatch,
+			headers: map[string]string{"Content-Type": "application/json"},
+			body: `{
+                "pet_type": "Dog",
+                "bark": false,
+                "breed": "Dingo"
+            }`,
+			wantErr:    false,
+			wantErrMsg: "",
+		},
+		{
+			name:    "Invalid - Missing pet_type",
+			path:    "/validateAllOf",
+			method:  http.MethodPatch,
+			headers: map[string]string{"Content-Type": "application/json"},
+			body: `{
+                "age": 3
+            }`,
+			wantErr:    true,
+			wantErrMsg: "request body does not match schema",
+		},
+		{
+			name:    "Invalid - Cat with missing age",
+			path:    "/validateAllOf",
+			method:  http.MethodPatch,
+			headers: map[string]string{"Content-Type": "application/json"},
+			body: `{
+                "pet_type": "Cat",
+                "bark": true
+            }`,
+			wantErr:    true,
+			wantErrMsg: "request body does not match schema",
+		},
+	}
+
+	validator := NewValidator(*spec)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, err := http.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
+			assert.NoError(t, err)
+
+			for k, v := range tt.headers {
+				req.Header.Set(k, v)
+			}
+
+			if tt.query != nil {
+				q := req.URL.Query()
+				for k, v := range tt.query {
+					q.Add(k, v)
+				}
+				req.URL.RawQuery = q.Encode()
+			}
+
+			_, err = validator.ValidateRequest(req)
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.wantErrMsg != "" {
+					assert.Contains(t, err.Error(), tt.wantErrMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateWithDiscriminator(t *testing.T) {
+	parser := oas.NewParser()
+
+	filePath := filepath.Join("..", "test_data", "advancedoas.swagger.io.json")
+	_, err := parser.LoadOasFromFile(filePath)
+	assert.NoError(t, err)
+
+	spec, err := parser.GetSchema()
+
+	validator := NewValidator(*spec)
+
+	dogJson := `{
+        "pet_type": "Dog",
+        "bark": true,
+        "breed": "Husky"
+    }`
+
+	var dog interface{}
+	json.Unmarshal([]byte(dogJson), &dog)
+
+	schema := oas.Schema{
+		OneOf: []oas.Schema{
+			{Ref: "#/components/schemas/Dog"},
+			{Ref: "#/components/schemas/Cat"},
+		},
+		Discriminator: &oas.Discriminator{
+			PropertyName: "pet_type",
+			Mapping: map[string]string{
+				"Dog": "#/components/schemas/Dog",
+				"Cat": "#/components/schemas/Cat",
+			},
+		},
+	}
+	result := validator.ValidateSchema(dog, schema)
+	assert.True(t, result)
 }

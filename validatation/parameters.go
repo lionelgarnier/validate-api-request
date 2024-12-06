@@ -47,7 +47,7 @@ func (v *DefaultValidator) ValidateParameters(req *http.Request, route string) (
 		}
 
 		if value != "" {
-			if !v.validateSchema(value, *param.Schema) {
+			if !v.ValidateSchema(value, *param.Schema) {
 				return false, fmt.Errorf("invalid type for parameter '%s'", param.Name)
 			}
 		}

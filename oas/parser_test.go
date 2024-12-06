@@ -8,17 +8,17 @@ import (
 
 func TestParseJSON(t *testing.T) {
 	parser := NewParser()
-	parser.oasText = []byte(`{
+	parser.SetOASText([]byte(`{
 		"openapi": "3.0.0",
 		"info": {
 			"title": "Sample API",
 			"version": "1.0.0"
 		},
 		"paths": {}
-	}`)
+	}`))
 	parser.isYAML = false
 
-	openAPI, err := parser.Parse()
+	openAPI, err := parser.GetSchema()
 	assert.NoError(t, err)
 	assert.NotNil(t, openAPI)
 	assert.Equal(t, "3.0.0", openAPI.OpenAPI)
@@ -28,15 +28,15 @@ func TestParseJSON(t *testing.T) {
 
 func TestParseYAML(t *testing.T) {
 	parser := NewParser()
-	parser.oasText = []byte(`
+	parser.SetOASText([]byte(`
 openapi: 3.0.0
 info:
   title: Sample API
   version: 1.0.0
 paths: {}
-`)
+`))
 	parser.isYAML = true
-	openAPI, err := parser.Parse()
+	openAPI, err := parser.GetSchema()
 	assert.NoError(t, err)
 	assert.NotNil(t, openAPI)
 	assert.Equal(t, "3.0.0", openAPI.OpenAPI)
@@ -46,40 +46,40 @@ paths: {}
 
 func TestParseInvalidJSON(t *testing.T) {
 	parser := NewParser()
-	parser.oasText = []byte(`{
+	parser.SetOASText([]byte(`{
 		"openapi": "3.0.0",
 		"info": {
 			"title": "Sample API",
 			"version": "1.0.0"
 		,
 		"paths": {}
-	}`)
+	}`))
 	parser.isYAML = false
-	openAPI, err := parser.Parse()
+	openAPI, err := parser.GetSchema()
 	assert.Error(t, err)
 	assert.Nil(t, openAPI)
 }
 
 func TestParseInvalidYAML(t *testing.T) {
 	parser := NewParser()
-	parser.oasText = []byte(`
+	parser.SetOASText([]byte(`
 openapi: 3.0.0
 info:
   title: Sample API
   version: 1.0.0
 paths: {}
 invalid
-`)
+`))
 	parser.isYAML = false
 
-	openAPI, err := parser.Parse()
+	openAPI, err := parser.GetSchema()
 	assert.Error(t, err)
 	assert.Nil(t, openAPI)
 }
 
 func TestParseComplexJSON(t *testing.T) {
 	parser := NewParser()
-	parser.oasText = []byte(`{
+	parser.SetOASText([]byte(`{
 	"openapi": "3.0.3",
 	"info": {
 	  "title": "Swagger Petstore - OpenAPI 3.0",
@@ -1309,9 +1309,9 @@ func TestParseComplexJSON(t *testing.T) {
 		}
 	  }
 	}
-}`)
+}`))
 	parser.isYAML = false
-	openAPI, err := parser.Parse()
+	openAPI, err := parser.GetSchema()
 	assert.NoError(t, err)
 	assert.NotNil(t, openAPI)
 	assert.Equal(t, "3.0.3", openAPI.OpenAPI)
@@ -1325,4 +1325,46 @@ func TestParseComplexJSON(t *testing.T) {
 	assert.Equal(t, "437 Lytton", openAPI.Components.Schemas["Address"].Properties["street"].Example)
 	assert.Equal(t, "Dogs", openAPI.Components.Schemas["Category"].Properties["name"].Example)
 
+}
+func TestParserCache(t *testing.T) {
+	parser := NewParser()
+
+	// First parse
+	parser.SetOASText([]byte(`{
+		"openapi": "3.0.0",
+		"info": {
+			"title": "Test API",
+			"version": "1.0.0"
+		},
+		"paths": {}
+	}`))
+
+	firstOpenAPI, err := parser.GetSchema()
+	assert.NoError(t, err)
+	assert.NotNil(t, firstOpenAPI)
+	assert.Equal(t, int64(0), parser.cache.Stats().Hits)
+
+	// Second parse with same content should return cached result
+	secondOpenAPI, err := parser.GetSchema()
+	assert.NoError(t, err)
+	assert.NotNil(t, secondOpenAPI)
+	assert.Equal(t, firstOpenAPI, secondOpenAPI)
+	assert.Equal(t, int64(1), parser.cache.Stats().Hits)
+
+	// Different content should parse new schema
+	parser.SetOASText([]byte(`{
+		"openapi": "3.0.0", 
+		"info": {
+			"title": "Different API",
+			"version": "2.0.0"
+		},
+		"paths": {}
+	}`))
+
+	thirdOpenAPI, err := parser.GetSchema()
+	assert.NoError(t, err)
+	assert.NotNil(t, thirdOpenAPI)
+	assert.NotEqual(t, firstOpenAPI, thirdOpenAPI)
+	assert.Equal(t, "Different API", thirdOpenAPI.Info.Title)
+	assert.Equal(t, int64(1), parser.cache.Stats().Hits)
 }

@@ -19,6 +19,7 @@ type Validator interface {
 	ValidateParameters(req *http.Request, route string) (bool, error)
 	ValidateRequestBody(req *http.Request, route string) (bool, error)
 	ValidateSecurity(req *http.Request, route string) (bool, error)
+	ValidateSchema(value interface{}, schema oas.Schema) bool
 }
 
 // DefaultValidator implements the Validator interface
@@ -59,8 +60,17 @@ func (v *DefaultValidator) ValidateRequest(req *http.Request) (bool, error) {
 	return true, nil
 }
 
-// validateSchema validates the request body against the schema
-func (v *DefaultValidator) validateSchema(value interface{}, schema oas.Schema) bool {
+// ValidateSchema validates the request body against the schema
+func (v *DefaultValidator) ValidateSchema(value interface{}, schema oas.Schema) bool {
+	// Handle discriminator first
+	if schema.Discriminator != nil {
+		resolvedSchema, err := v.resolveDiscriminator(value, schema)
+		if err != nil {
+			return false
+		}
+		return v.ValidateSchema(value, resolvedSchema)
+	}
+
 	// Resolve the schema reference if necessary
 	if schema.Ref != "" {
 		resolvedSchema, err := v.resolveSchemaReference(schema.Ref)
@@ -72,7 +82,7 @@ func (v *DefaultValidator) validateSchema(value interface{}, schema oas.Schema) 
 
 	if schema.AllOf != nil {
 		for _, subSchema := range schema.AllOf {
-			if !v.validateSchema(value, subSchema) {
+			if !v.ValidateSchema(value, subSchema) {
 				return false
 			}
 		}
@@ -82,7 +92,7 @@ func (v *DefaultValidator) validateSchema(value interface{}, schema oas.Schema) 
 	if schema.OneOf != nil {
 		validCount := 0
 		for _, subSchema := range schema.OneOf {
-			if v.validateSchema(value, subSchema) {
+			if v.ValidateSchema(value, subSchema) {
 				validCount++
 			}
 		}
@@ -91,14 +101,14 @@ func (v *DefaultValidator) validateSchema(value interface{}, schema oas.Schema) 
 
 	if schema.AnyOf != nil {
 		for _, subSchema := range schema.AnyOf {
-			if v.validateSchema(value, subSchema) {
+			if v.ValidateSchema(value, subSchema) {
 				return true
 			}
 		}
 		return false
 	}
 
-	return v.validateSchemaType(value, schema)
+	return v.ValidateSchemaType(value, schema)
 }
 
 // validateArray validates an array value against the schema
@@ -146,11 +156,11 @@ func (v *DefaultValidator) validateArray(value interface{}, schema oas.Schema) b
 			if err != nil {
 				return false
 			}
-			if !v.validateSchema(item, resolvedSchema) {
+			if !v.ValidateSchema(item, resolvedSchema) {
 				return false
 			}
 		} else {
-			if !v.validateSchema(item, *schema.Items) {
+			if !v.ValidateSchema(item, *schema.Items) {
 				return false
 			}
 		}
@@ -198,11 +208,11 @@ func (v *DefaultValidator) validateObject(value interface{}, schema oas.Schema) 
 			if err != nil {
 				return false
 			}
-			if !v.validateSchema(propValue, resolvedSchema) {
+			if !v.ValidateSchema(propValue, resolvedSchema) {
 				return false
 			}
 		} else {
-			if !v.validateSchema(propValue, propSchema) {
+			if !v.ValidateSchema(propValue, propSchema) {
 				return false
 			}
 		}
@@ -215,7 +225,7 @@ func (v *DefaultValidator) validateObject(value interface{}, schema oas.Schema) 
 				if !ok {
 					return false
 				}
-				if !v.validateSchema(obj[propName], *additionalPropertiesSchema) {
+				if !v.ValidateSchema(obj[propName], *additionalPropertiesSchema) {
 					return false
 				}
 			}
@@ -226,7 +236,7 @@ func (v *DefaultValidator) validateObject(value interface{}, schema oas.Schema) 
 }
 
 // validateParameterType validates the parameter value against the expected type
-func (v *DefaultValidator) validateSchemaType(value interface{}, paramSchema oas.Schema) bool {
+func (v *DefaultValidator) ValidateSchemaType(value interface{}, paramSchema oas.Schema) bool {
 
 	switch paramSchema.Type {
 	case "string":
@@ -276,6 +286,50 @@ func (v *DefaultValidator) resolveParameterReference(ref string) (oas.Parameter,
 		return oas.Parameter{}, fmt.Errorf("parameter reference '%s' not found", ref)
 	}
 	return param, nil
+}
+
+// resolveDiscriminator resolves discriminator mapping and returns the correct schema
+func (v *DefaultValidator) resolveDiscriminator(value interface{}, schema oas.Schema) (oas.Schema, error) {
+	if schema.Discriminator == nil {
+		return schema, nil
+	}
+
+	// Get object to check discriminator property
+	obj, ok := value.(map[string]interface{})
+	if !ok {
+		return schema, fmt.Errorf("value must be object when using discriminator")
+	}
+
+	// Get discriminator value
+	discriminatorValue, ok := obj[schema.Discriminator.PropertyName].(string)
+	if !ok {
+		return schema, fmt.Errorf("discriminator property '%s' not found or not string",
+			schema.Discriminator.PropertyName)
+	}
+
+	// Check mapping
+	var schemaRef string
+	if len(schema.Discriminator.Mapping) > 0 {
+		// Use explicit mapping
+		if ref, ok := schema.Discriminator.Mapping[discriminatorValue]; ok {
+			schemaRef = ref
+		}
+	} else {
+		// Default mapping - append to current schema path
+		schemaRef = "#/components/schemas/" + discriminatorValue
+	}
+
+	if schemaRef == "" {
+		return schema, fmt.Errorf("no schema found for discriminator value '%s'",
+			discriminatorValue)
+	}
+
+	resolvedSchema, err := v.resolveSchemaReference(schemaRef)
+	if err != nil {
+		return schema, fmt.Errorf("failed to resolve discriminator schema: %v", err)
+	}
+
+	return resolvedSchema, nil
 }
 
 // validateString validates a string value against the schema
