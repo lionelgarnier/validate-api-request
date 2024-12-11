@@ -50,3 +50,10 @@ func HeaderSelector(headerName string) APISelector {
 /* Ex:
    versionSelector := HeaderSelector("X-API-Version")
 */
+
+// FixedSelector returns an APISelector that always selects the same API.
+func FixedSelector(apiName string) APISelector {
+	return func(r *http.Request) string {
+		return apiName
+	}
+}

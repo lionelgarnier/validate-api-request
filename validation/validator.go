@@ -3,9 +3,7 @@ package validation
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strings"
-	"time"
 
 	"github.com/lionelgarnier/validate-api-request/oas"
 	"github.com/lionelgarnier/validate-api-request/pkg/helpers"
@@ -13,74 +11,60 @@ import (
 
 // Validator defines the interface for request validation
 type Validator interface {
-	ValidateRequest(req *http.Request) (bool, error)
-	ResolveRequestPath(req *http.Request) (string, error)
-	ValidateRequestPath(req *http.Request, route string) (bool, error)
-	ValidateRequestMethod(req *http.Request, route string) (bool, error)
-	ValidateParameters(req *http.Request, route string) (bool, error)
-	ValidateRequestBody(req *http.Request, route string) (bool, error)
-	ValidateSecurity(req *http.Request, route string) (bool, error)
+	ValidateRequest(req *oas.OASRequest) (bool, error)
+	ResolveRequestPath(req *oas.OASRequest) (*oas.PathCache, error)
+	ValidateRequestPath(req *oas.OASRequest) (bool, error)
+	ValidateRequestMethod(req *oas.OASRequest) (bool, error)
+	ValidateParameters(req *oas.OASRequest) (bool, error)
+	ValidateRequestBody(req *oas.OASRequest) (bool, error)
+	ValidateSecurity(req *oas.OASRequest) (bool, error)
 	ValidateSchema(value interface{}, schema *oas.Schema) bool
-	SetCurrentAPI(apiName string) error
+	SetApiSpec(apiSpec *oas.APISpec)
 }
 
 // DefaultValidator implements the Validator interface
 type DefaultValidator struct {
-	manager    *oas.OASManager
-	currentAPI string
-	apiSpec    *oas.APISpec
+	apiSpec *oas.APISpec
 }
 
 // NewValidator returns a new Validator
-func NewValidator(manager *oas.OASManager) Validator {
+func NewValidator(apiSpec *oas.APISpec) Validator {
 	return &DefaultValidator{
-		manager: manager,
+		apiSpec: apiSpec,
 	}
 }
 
-func (v *DefaultValidator) SetCurrentAPI(apiName string) error {
-	spec, exists := v.manager.GetApiSpec(apiName)
-	if !exists {
-		return fmt.Errorf("API spec '%s' not found", apiName)
-	}
-	v.currentAPI = apiName
-	v.apiSpec = spec
-	return nil
+// SetApiSpec sets the current API spec to validate against
+func (v *DefaultValidator) SetApiSpec(apiSpec *oas.APISpec) {
+	v.apiSpec = apiSpec
 }
 
 // ValidateRequest performs full request validation
-func (v *DefaultValidator) ValidateRequest(req *http.Request) (bool, error) {
+func (v *DefaultValidator) ValidateRequest(req *oas.OASRequest) (bool, error) {
 
 	if v.apiSpec == nil {
 		return false, fmt.Errorf("no API spec selected, call SetCurrentAPI first")
 	}
 
-	route, err := v.ResolveRequestPath(req)
-	if route == "" {
+	pathCache, err := v.ResolveRequestPath(req)
+	if err != nil {
 		return false, err
-	}
-
-	// Update path hit count
-	if pathCache, exists := v.apiSpec.Paths[route]; exists {
-		pathCache.HitCount++
-		v.apiSpec.HitCount++
-		v.apiSpec.LastAccess = time.Now()
 	}
 
 	/* Not required as resolved paths should always be valid
 	if ok, err := v.ValidateRequestPath(req, route); !ok {
 		return false, err
 	}*/
-	if ok, err := v.ValidateRequestMethod(req, route); !ok {
+	if ok, err := v.ValidateRequestMethodForPath(req, pathCache); !ok {
 		return false, err
 	}
-	if ok, err := v.ValidateParameters(req, route); !ok {
+	if ok, err := v.ValidateParametersForPath(req, pathCache); !ok {
 		return false, err
 	}
-	if ok, err := v.ValidateRequestBody(req, route); !ok {
+	if ok, err := v.ValidateRequestBodyForPath(req, pathCache); !ok {
 		return false, err
 	}
-	if ok, err := v.ValidateSecurity(req, route); !ok {
+	if ok, err := v.ValidateSecurityForPath(req, pathCache); !ok {
 		return false, err
 	}
 	return true, nil
@@ -285,6 +269,7 @@ func (v *DefaultValidator) ValidateSchemaType(value interface{}, paramSchema *oa
 
 // resolveSchemaReference resolves a schema reference to its actual definition
 func (v *DefaultValidator) resolveSchemaReference(ref string) (*oas.Schema, error) {
+
 	// Remove the "#/components/schemas/" prefix
 	ref = strings.TrimPrefix(ref, "#/components/schemas/")
 
@@ -297,6 +282,7 @@ func (v *DefaultValidator) resolveSchemaReference(ref string) (*oas.Schema, erro
 	if !exists {
 		return nil, fmt.Errorf("schema reference '%s' not found", ref)
 	}
+
 	return schema, nil
 }
 

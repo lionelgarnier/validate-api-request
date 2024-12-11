@@ -1,21 +1,10 @@
-# Validate API Request
+# validate-api-request
 
-A Go library to validate API requests against OpenAPI/Swagger specifications (v3).
+A Go package for validating API requests against OpenAPI 3.0 specifications.
 
 ## Overview
 
-This library helps validate HTTP API requests by checking them against OpenAPI 3.0 specifications. It ensures incoming requests match the expected schemas, parameters, and formats defined in your API documentation.
-
-## Features
-
-- Validates requests against OpenAPI 3.0 specifications 
-- Supports JSON and YAML specification formats
-- Validates:
-    - Request parameters
-    - Request bodies
-    - Response formats
-    - Data types and formats
-- Easy integration with Go web applications
+This package provides functionality to validate API requests (paths, headers, query parameters, and request bodies) against OpenAPI 3.0 (Swagger) specifications.
 
 ## Installation
 
@@ -23,27 +12,31 @@ This library helps validate HTTP API requests by checking them against OpenAPI 3
 go get github.com/lionelgarnier/validate-api-request
 ```
 
+## Requirements
+
+- Go 1.23.2 or higher
+
+## Dependencies
+
+- github.com/stretchr/testify v1.10.0
+- gopkg.in/yaml.v3
+- github.com/zeebo/xxh3
+
 ## Usage
 
 ```go
-import "github.com/lionelgarnier/validate-api-request"
-
-// Load the OpenAPI spec
-validator, err := validator.New("path/to/openapi.yaml")
-if err != nil {
-        log.Fatal(err)
-}
-
-// Validate a request
-err = validator.ValidateRequest(request)
-if err != nil {
-        // Handle validation error
-}
+// Example usage coming soon
 ```
 
-## Documentation
+## Features
 
-For detailed documentation and examples, please visit the [project wiki](https://github.com/lionelgarnier/validate-api-request/wiki).
+- OpenAPI 3.0 specification validation
+- Request validation:
+        - Path parameters
+        - Query parameters
+        - Headers
+        - Request bodies
+- Supports JSON and YAML specification formats
 
 ## Contributing
 
@@ -51,4 +44,8 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache 2.0 License - see the LICENSE file for details.
+
+## Contact
+
+For questions and support, please open an issue in the GitHub repository.

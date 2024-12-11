@@ -23,8 +23,8 @@ type CacheEntry[T any] struct {
 
 // Cache defines the generic caching interface
 type Cache[T any] interface {
-	Get(key uint64) (T, bool)
-	Set(key uint64, value T)
+	Get(key string) (T, bool)
+	Set(key string, value T)
 	Remove(key uint64)
 	Clear()
 	Stats() CacheStats
@@ -32,7 +32,7 @@ type Cache[T any] interface {
 
 // BaseCache implements common caching functionality
 type BaseCache[T any] struct {
-	entries map[uint64]*CacheEntry[T]
+	entries map[string]*CacheEntry[T]
 	maxSize int
 	stats   CacheStats
 	ttl     time.Duration
@@ -41,14 +41,14 @@ type BaseCache[T any] struct {
 
 func NewBaseCache[T any](maxSize int, ttl time.Duration) *BaseCache[T] {
 	return &BaseCache[T]{
-		entries: make(map[uint64]*CacheEntry[T]),
+		entries: make(map[string]*CacheEntry[T]),
 		maxSize: maxSize,
 		ttl:     ttl,
 	}
 }
 
 // Common methods implementation
-func (c *BaseCache[T]) Get(key uint64) (T, bool) {
+func (c *BaseCache[T]) Get(key string) (T, bool) {
 	c.mu.RLock()
 	entry, exists := c.entries[key]
 	if !exists {
@@ -78,7 +78,7 @@ func (c *BaseCache[T]) Get(key uint64) (T, bool) {
 	return value, true
 }
 
-func (c *BaseCache[T]) Set(key uint64, value T) {
+func (c *BaseCache[T]) Set(key string, value T) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -94,7 +94,7 @@ func (c *BaseCache[T]) Set(key uint64, value T) {
 	c.stats.Size = len(c.entries)
 }
 
-func (c *BaseCache[T]) Remove(key uint64) {
+func (c *BaseCache[T]) Remove(key string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -106,7 +106,7 @@ func (c *BaseCache[T]) Clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.entries = make(map[uint64]*CacheEntry[T])
+	c.entries = make(map[string]*CacheEntry[T])
 	c.stats.Size = 0
 }
 
@@ -117,17 +117,17 @@ func (c *BaseCache[T]) Stats() CacheStats {
 }
 
 func (c *BaseCache[T]) evictOldest() {
-	var oldestKey uint64
+	var oldestKey string
 	var oldestAccess time.Time
 
 	for key, entry := range c.entries {
-		if oldestKey == 0 || entry.LastAccess.Before(oldestAccess) {
+		if oldestKey == "" || entry.LastAccess.Before(oldestAccess) {
 			oldestKey = key
 			oldestAccess = entry.LastAccess
 		}
 	}
 
-	if oldestKey != 0 {
+	if oldestKey != "" {
 		delete(c.entries, oldestKey)
 		c.stats.EvictCount++
 	}

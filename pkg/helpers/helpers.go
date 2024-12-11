@@ -204,11 +204,13 @@ func ParseDuration(duration string) (time.Duration, error) {
 	return time.ParseDuration(duration)
 }
 
+// HashKeyMD5Base64 generates a base64 encoded MD5 hash of a string
 func HashKeyMD5Base64(key string) string {
 	hash := md5.Sum([]byte(key))
 	return base64.StdEncoding.EncodeToString(hash[:])
 }
 
+// TypeRegexMap contains regex patterns for common types
 var TypeRegexMap = map[string]string{
 	"string":   "[^/?#]+",
 	"integer":  "\\d+",
@@ -236,6 +238,7 @@ var TypeRegexMap = map[string]string{
 		`)`,
 }
 
+// SanitizeString replaces special characters in a string
 func SanitizeString(value string) string {
 	// Replace slashes with underscores and remove other special characters
 	sanitized := strings.ReplaceAll(value, "/", "_")

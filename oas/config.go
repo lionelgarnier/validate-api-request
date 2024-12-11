@@ -13,6 +13,7 @@ type CacheConfig struct {
 	CleanupInterval time.Duration `json:"cleanupInterval"` // How often to run cleanup
 }
 
+// DefaultCacheConfig returns a default cache configuration
 func DefaultCacheConfig() *CacheConfig {
 	return &CacheConfig{
 		MaxAPIs:         100,

@@ -11,7 +11,7 @@ import (
 
 func TestValidateRequestBody(t *testing.T) {
 
-	manager := oas.NewOASManager(nil)
+	manager := oas.NewOASManager(nil, oas.FixedSelector("test"))
 
 	// Load test API spec
 	content := []byte(`{
@@ -211,14 +211,12 @@ func TestValidateRequestBody(t *testing.T) {
 	err := manager.LoadAPI("test", content)
 	assert.NoError(t, err)
 
-	validator := NewValidator(manager)
-	err = validator.SetCurrentAPI("test")
-	assert.NoError(t, err)
+	spec, _ := manager.GetApiSpec("test")
+	validator := NewValidator(spec)
 
 	tests := []struct {
 		name          string
 		path          string
-		route         string
 		method        string
 		headers       map[string]string
 		body          string
@@ -228,7 +226,6 @@ func TestValidateRequestBody(t *testing.T) {
 			name:          "Valid request body",
 			method:        http.MethodPost,
 			path:          "/pet",
-			route:         "/pet",
 			body:          `{"name": "Fluffy", "age": 5}`,
 			expectedError: "",
 			headers:       map[string]string{"Content-Type": "application/json"},
@@ -237,7 +234,6 @@ func TestValidateRequestBody(t *testing.T) {
 			name:          "Missing required field",
 			method:        http.MethodPost,
 			path:          "/pet",
-			route:         "/pet",
 			body:          `{"age": 5}`,
 			expectedError: "request body does not match schema",
 		},
@@ -245,7 +241,6 @@ func TestValidateRequestBody(t *testing.T) {
 			name:          "Invalid type",
 			method:        http.MethodPost,
 			path:          "/pet",
-			route:         "/pet",
 			body:          `{"name": "Fluffy", "age": "five"}`,
 			expectedError: "request body does not match schema",
 		},
@@ -253,7 +248,6 @@ func TestValidateRequestBody(t *testing.T) {
 			name:          "Missing required body",
 			method:        http.MethodPost,
 			path:          "/pet",
-			route:         "/pet",
 			body:          "",
 			expectedError: "request body is required",
 		},
@@ -261,7 +255,6 @@ func TestValidateRequestBody(t *testing.T) {
 			name:          "Unsupported content type",
 			method:        http.MethodPost,
 			path:          "/pet",
-			route:         "/pet",
 			body:          `{"name": "Fluffy"}`,
 			headers:       map[string]string{"Content-Type": "text/plain"},
 			expectedError: "unsupported content type 'text/plain'",
@@ -270,7 +263,6 @@ func TestValidateRequestBody(t *testing.T) {
 			name:          "Invalid JSON",
 			method:        http.MethodPost,
 			path:          "/pet",
-			route:         "/pet",
 			body:          `{"name": "Fluffy", invalid}`,
 			expectedError: "invalid request body",
 		},
@@ -278,7 +270,6 @@ func TestValidateRequestBody(t *testing.T) {
 			name:          "Valid schema reference",
 			method:        http.MethodPost,
 			path:          "/user",
-			route:         "/user",
 			body:          `{"username": "john", "email": "john@example.com"}`,
 			expectedError: "",
 		},
@@ -286,7 +277,6 @@ func TestValidateRequestBody(t *testing.T) {
 			name:          "No schema defined",
 			method:        http.MethodPost,
 			path:          "/noschema",
-			route:         "/noschema",
 			body:          `{"anything": "goes"}`,
 			expectedError: "",
 		},
@@ -294,7 +284,6 @@ func TestValidateRequestBody(t *testing.T) {
 			name:          "Valid oneOf component",
 			method:        http.MethodPost,
 			path:          "/oneofComponent",
-			route:         "/oneofComponent",
 			body:          `"test@example.com"`,
 			expectedError: "",
 		},
@@ -302,7 +291,6 @@ func TestValidateRequestBody(t *testing.T) {
 			name:          "Invalid oneOf component",
 			method:        http.MethodPost,
 			path:          "/oneofComponent",
-			route:         "/oneofComponent",
 			body:          `"not-an-email"`,
 			expectedError: "request body does not match schema",
 		},
@@ -310,7 +298,6 @@ func TestValidateRequestBody(t *testing.T) {
 			name:          "Valid anyOf component",
 			method:        http.MethodPost,
 			path:          "/anyofComponent",
-			route:         "/anyofComponent",
 			body:          `"ABC"`,
 			expectedError: "",
 		},
@@ -318,7 +305,6 @@ func TestValidateRequestBody(t *testing.T) {
 			name:          "Invalid anyOf component",
 			method:        http.MethodPost,
 			path:          "/anyofComponent",
-			route:         "/anyofComponent",
 			body:          `"ABCD"`,
 			expectedError: "request body does not match schema",
 		},
@@ -326,7 +312,6 @@ func TestValidateRequestBody(t *testing.T) {
 			name:          "Valid allOf component",
 			method:        http.MethodPost,
 			path:          "/allofComponent",
-			route:         "/allofComponent",
 			body:          `{"id": 1, "name": "John", "age": 25}`,
 			expectedError: "",
 		},
@@ -334,7 +319,6 @@ func TestValidateRequestBody(t *testing.T) {
 			name:          "Invalid allOf component",
 			method:        http.MethodPost,
 			path:          "/allofComponent",
-			route:         "/allofComponent",
 			body:          `{"id": 1, "name": "John"}`,
 			expectedError: "request body does not match schema",
 		},
@@ -342,7 +326,6 @@ func TestValidateRequestBody(t *testing.T) {
 			name:          "Valid oneOf",
 			method:        http.MethodPost,
 			path:          "/oneof",
-			route:         "/oneof",
 			body:          `"test"`,
 			expectedError: "",
 		},
@@ -350,7 +333,6 @@ func TestValidateRequestBody(t *testing.T) {
 			name:          "Valid anyOf",
 			method:        http.MethodPost,
 			path:          "/anyof",
-			route:         "/anyof",
 			body:          `"abc"`,
 			expectedError: "",
 		},
@@ -358,7 +340,6 @@ func TestValidateRequestBody(t *testing.T) {
 			name:          "Valid allOf",
 			method:        http.MethodPost,
 			path:          "/allof",
-			route:         "/allof",
 			body:          `{"id": 1, "status": "active"}`,
 			expectedError: "",
 		},
@@ -373,7 +354,9 @@ func TestValidateRequestBody(t *testing.T) {
 				req.Header.Set(k, v)
 			}
 
-			ok, err := validator.ValidateRequestBody(req, tt.route)
+			oasRequest := oas.NewOASRequest(req)
+
+			ok, err := validator.ValidateRequestBody(oasRequest)
 			if tt.expectedError != "" {
 				assert.False(t, ok)
 				assert.Error(t, err)

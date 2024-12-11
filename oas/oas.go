@@ -12,6 +12,7 @@ type OpenAPI struct {
 	ExternalDocs *ExternalDocs         `json:"externalDocs,omitempty" yaml:"externalDocs,omitempty"`
 }
 
+// Components is a container for reusable schemas and responses.
 type Info struct {
 	Title          string   `json:"title" yaml:"title"`
 	Description    string   `json:"description,omitempty" yaml:"description,omitempty"`
@@ -21,6 +22,7 @@ type Info struct {
 	Version        string   `json:"version" yaml:"version"`
 }
 
+// Components is a container for reusable schemas and responses.
 type Components struct {
 	Schemas         map[string]Schema         `json:"schemas,omitempty" yaml:"schemas,omitempty"`
 	Responses       map[string]Response       `json:"responses,omitempty" yaml:"responses,omitempty"`
@@ -33,6 +35,7 @@ type Components struct {
 	Callbacks       map[string]Callback       `json:"callbacks,omitempty" yaml:"callbacks,omitempty"`
 }
 
+// PathItem is a list of operations that can be performed on a path.
 type PathItem struct {
 	Ref         string      `json:"$ref,omitempty" yaml:"$ref,omitempty"`
 	Summary     string      `json:"summary,omitempty" yaml:"summary,omitempty"`
@@ -49,6 +52,7 @@ type PathItem struct {
 	Parameters  []Parameter `json:"parameters,omitempty" yaml:"parameters,omitempty"`
 }
 
+// Operation is a single API operation on a path.
 type Operation struct {
 	Tags         []string               `json:"tags,omitempty" yaml:"tags,omitempty"`
 	Summary      string                 `json:"summary,omitempty" yaml:"summary,omitempty"`
@@ -65,6 +69,7 @@ type Operation struct {
 	Extensions   map[string]interface{} `json:"-" yaml:"-"`
 }
 
+// Schema is a JSON Schema object.
 type Schema struct {
 	Ref                  string                 `json:"$ref,omitempty" yaml:"$ref,omitempty"`
 	Type                 string                 `json:"type,omitempty" yaml:"type,omitempty"`
@@ -104,18 +109,21 @@ type Schema struct {
 	Extensions           map[string]interface{} `json:"-" yaml:"-"`
 }
 
+// Server is a URL to the target host.
 type Server struct {
 	URL         string                    `json:"url" yaml:"url"`
 	Description string                    `json:"description,omitempty" yaml:"description,omitempty"`
 	Variables   map[string]ServerVariable `json:"variables,omitempty" yaml:"variables,omitempty"`
 }
 
+// ServerVariable is a server variable for URL template substitution.
 type ServerVariable struct {
 	Enum        []string `json:"enum,omitempty" yaml:"enum,omitempty"`
 	Default     string   `json:"default" yaml:"default"`
 	Description string   `json:"description,omitempty" yaml:"description,omitempty"`
 }
 
+// Parameter is a list of parameters that can be used across operations.
 type Parameter struct {
 	Name            string               `json:"name" yaml:"name"`
 	In              string               `json:"in" yaml:"in"`
@@ -132,12 +140,14 @@ type Parameter struct {
 	Content         map[string]MediaType `json:"content,omitempty" yaml:"content,omitempty"`
 }
 
+// RequestBody is a request body object that can be passed to an operation.
 type RequestBody struct {
 	Description string               `json:"description,omitempty" yaml:"description,omitempty"`
 	Content     map[string]MediaType `json:"content" yaml:"content"`
 	Required    bool                 `json:"required,omitempty" yaml:"required,omitempty"`
 }
 
+// MediaType is a media type object that can be referenced by responses and request bodies.
 type MediaType struct {
 	Schema   *Schema             `json:"schema,omitempty" yaml:"schema,omitempty"`
 	Example  interface{}         `json:"example,omitempty" yaml:"example,omitempty"`
@@ -145,6 +155,7 @@ type MediaType struct {
 	Encoding map[string]Encoding `json:"encoding,omitempty" yaml:"encoding,omitempty"`
 }
 
+// Encoding is a single encoding definition applied to a single schema property.
 type Encoding struct {
 	ContentType   string            `json:"contentType,omitempty" yaml:"contentType,omitempty"`
 	Headers       map[string]Header `json:"headers,omitempty" yaml:"headers,omitempty"`
@@ -153,6 +164,7 @@ type Encoding struct {
 	AllowReserved bool              `json:"allowReserved,omitempty" yaml:"allowReserved,omitempty"`
 }
 
+// Response is a list of possible responses as they are returned from executing this operation.
 type Response struct {
 	Description string               `json:"description" yaml:"description"`
 	Headers     map[string]Header    `json:"headers,omitempty" yaml:"headers,omitempty"`
@@ -160,8 +172,10 @@ type Response struct {
 	Links       map[string]Link      `json:"links,omitempty" yaml:"links,omitempty"`
 }
 
+// Callback is a map of possible out-of band callbacks related to the parent operation.
 type Callback map[string]PathItem
 
+// Example is a "example" object that provides an example of the schema.
 type Example struct {
 	Summary       string      `json:"summary,omitempty" yaml:"summary,omitempty"`
 	Description   string      `json:"description,omitempty" yaml:"description,omitempty"`
@@ -169,6 +183,7 @@ type Example struct {
 	ExternalValue string      `json:"externalValue,omitempty" yaml:"externalValue,omitempty"`
 }
 
+// Link represents a possible design-time link for a response.
 type Link struct {
 	OperationRef string                 `json:"operationRef,omitempty" yaml:"operationRef,omitempty"`
 	OperationId  string                 `json:"operationId,omitempty" yaml:"operationId,omitempty"`
@@ -178,6 +193,7 @@ type Link struct {
 	Server       *Server                `json:"server,omitempty" yaml:"server,omitempty"`
 }
 
+// Header is a list of headers that can be used across operations.
 type Header struct {
 	Description     string               `json:"description,omitempty" yaml:"description,omitempty"`
 	Required        bool                 `json:"required,omitempty" yaml:"required,omitempty"`
@@ -192,23 +208,27 @@ type Header struct {
 	Content         map[string]MediaType `json:"content,omitempty" yaml:"content,omitempty"`
 }
 
+// Tag is a list of tags used by the specification with additional metadata.
 type Tag struct {
 	Name         string        `json:"name" yaml:"name"`
 	Description  string        `json:"description,omitempty" yaml:"description,omitempty"`
 	ExternalDocs *ExternalDocs `json:"externalDocs,omitempty" yaml:"externalDocs,omitempty"`
 }
 
+// ExternalDocs is a list of external documentation.
 type ExternalDocs struct {
 	Description string `json:"description,omitempty" yaml:"description,omitempty"`
 	URL         string `json:"url" yaml:"url"`
 }
 
+// Contact information for the exposed API.
 type Contact struct {
 	Name  string `json:"name,omitempty" yaml:"name,omitempty"`
 	URL   string `json:"url,omitempty" yaml:"url,omitempty"`
 	Email string `json:"email,omitempty" yaml:"email,omitempty"`
 }
 
+// License information for the exposed API.
 type License struct {
 	Name string `json:"name" yaml:"name"`
 	URL  string `json:"url,omitempty" yaml:"url,omitempty"`
@@ -216,6 +236,7 @@ type License struct {
 
 type SecurityRequirement map[string][]string
 
+// XML is a metadata object that allows for more fine-tuned XML model definitions.
 type XML struct {
 	Name      string `json:"name,omitempty" yaml:"name,omitempty"`
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
@@ -224,11 +245,13 @@ type XML struct {
 	Wrapped   bool   `json:"wrapped,omitempty" yaml:"wrapped,omitempty"`
 }
 
+// Discriminator adds support for polymorphism.
 type Discriminator struct {
 	PropertyName string            `json:"propertyName" yaml:"propertyName"`
 	Mapping      map[string]string `json:"mapping,omitempty" yaml:"mapping,omitempty"`
 }
 
+// OAuth2 configuration
 type SecurityScheme struct {
 	Type             string      `json:"type,omitempty" yaml:"type,omitempty"`
 	Description      string      `json:"description,omitempty" yaml:"description,omitempty"`
@@ -240,6 +263,7 @@ type SecurityScheme struct {
 	OpenIdConnectUrl string      `json:"openIdConnectUrl,omitempty" yaml:"openIdConnectUrl,omitempty"`
 }
 
+// OAuthFlows configuration
 type OAuthFlows struct {
 	Implicit          *OAuthFlow `json:"implicit,omitempty" yaml:"implicit,omitempty"`
 	Password          *OAuthFlow `json:"password,omitempty" yaml:"password,omitempty"`
@@ -247,6 +271,7 @@ type OAuthFlows struct {
 	AuthorizationCode *OAuthFlow `json:"authorizationCode,omitempty" yaml:"authorizationCode,omitempty"`
 }
 
+// OAuthFlow configuration
 type OAuthFlow struct {
 	AuthorizationURL string            `json:"authorizationUrl" yaml:"authorizationUrl"`
 	TokenURL         string            `json:"tokenUrl" yaml:"tokenUrl"`

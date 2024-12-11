@@ -3,16 +3,29 @@ package validation
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
+	"strings"
+
+	"github.com/lionelgarnier/validate-api-request/oas"
 )
 
-// ValidateRequestBody validates the request body
-func (v *DefaultValidator) ValidateRequestBody(req *http.Request, route string) (bool, error) {
-
-	// Look for route & method in spec
-	operation, err := v.GetOperation(route, req.Method)
+// ValidateRequestPath validates the request path
+func (v *DefaultValidator) ValidateRequestBody(req *oas.OASRequest) (bool, error) {
+	pathCache, err := v.ResolveRequestPath(req)
 	if err != nil {
 		return false, err
+	}
+	return v.ValidateRequestBodyForPath(req, pathCache)
+}
+
+// ValidateRequestBody validates the request body for a given pathCache
+func (v *DefaultValidator) ValidateRequestBodyForPath(req *oas.OASRequest, pathCache *oas.PathCache) (bool, error) {
+	pathItem := pathCache.Item
+	method := strings.ToUpper(req.Request.Method)
+
+	// Look for route & method in spec
+	operation := v.GetOperation(pathItem, method)
+	if operation == nil {
+		return false, fmt.Errorf("method '%s' not allowed for path '%s'", method, pathCache.Route)
 	}
 
 	requestBody := operation.RequestBody
@@ -22,12 +35,12 @@ func (v *DefaultValidator) ValidateRequestBody(req *http.Request, route string) 
 	}
 
 	// Check if request body is required
-	if requestBody.Required && req.ContentLength == 0 {
+	if requestBody.Required && req.Request.ContentLength == 0 {
 		return false, fmt.Errorf("request body is required")
 	}
 
 	// Get content type from request
-	contentType := req.Header.Get("Content-Type")
+	contentType := req.Request.Header.Get("Content-Type")
 	if contentType == "" {
 		contentType = "application/json" // Default to JSON if not specified
 	}
@@ -45,7 +58,7 @@ func (v *DefaultValidator) ValidateRequestBody(req *http.Request, route string) 
 
 	// Parse request body
 	var body interface{}
-	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+	if err := json.NewDecoder(req.Request.Body).Decode(&body); err != nil {
 		return false, fmt.Errorf("invalid request body: %v", err)
 	}
 

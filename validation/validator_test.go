@@ -12,7 +12,7 @@ import (
 )
 
 func TestValidateRequest(t *testing.T) {
-	manager := oas.NewOASManager(nil)
+	manager := oas.NewOASManager(nil, oas.FixedSelector("test"))
 	filePath := filepath.Join("..", "test_data", "petstore3.swagger.io_api_json.json")
 	manager.LoadAPIFromFile("test", filePath)
 
@@ -30,7 +30,7 @@ func TestValidateRequest(t *testing.T) {
 			name:    "valid pet create request",
 			path:    "/pet",
 			method:  http.MethodPost,
-			headers: map[string]string{"Content-Type": "application/json"},
+			headers: map[string]string{"Content-Type": "application/json", "Authorization": "Bearer valid-oauth2-token"},
 			body:    `{"name": "doggie", "photoUrls": ["http://example.com"]}`,
 			wantErr: false,
 		},
@@ -38,7 +38,7 @@ func TestValidateRequest(t *testing.T) {
 			name:    "invalid pet create request - missing required fields",
 			path:    "/pet",
 			method:  http.MethodPost,
-			headers: map[string]string{"Content-Type": "application/json"},
+			headers: map[string]string{"Content-Type": "application/json", "Authorization": "Bearer valid-oauth2-token"},
 			body:    `{"id": 1}`,
 			wantErr: true,
 			//wantErrMsg: "missing required fields: name,photoUrls",
@@ -48,6 +48,7 @@ func TestValidateRequest(t *testing.T) {
 			name:    "valid pet get by status",
 			path:    "/pet/findByStatus",
 			method:  http.MethodGet,
+			headers: map[string]string{"Authorization": "Bearer valid-oauth2-token"},
 			query:   map[string]string{"status": "available"},
 			wantErr: false,
 		},
@@ -55,16 +56,25 @@ func TestValidateRequest(t *testing.T) {
 			name:       "invalid pet get by status",
 			path:       "/pet/findByStatus",
 			method:     http.MethodGet,
+			headers:    map[string]string{"Authorization": "Bearer valid-oauth2-token"},
 			query:      map[string]string{"status": "invalid_status"},
 			wantErr:    true,
 			wantErrMsg: "invalid type for parameter 'status'",
 			//wantErrMsg: "parameter status value 'invalid_status' is not one of allowed values",
 		},
+		{
+			name:       "missing security token format pet create request",
+			path:       "/pet",
+			method:     http.MethodPost,
+			headers:    map[string]string{"Content-Type": "application/json"},
+			body:       `{"name": "doggie", "photoUrls": ["http://example.com"]}`,
+			wantErr:    true,
+			wantErrMsg: "request does not satisfy any security requirements",
+		},
 	}
 
-	validator := NewValidator(manager)
-	err := validator.SetCurrentAPI("test")
-	assert.NoError(t, err)
+	spec, _ := manager.GetApiSpec("test")
+	validator := NewValidator(spec)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -83,7 +93,9 @@ func TestValidateRequest(t *testing.T) {
 				req.URL.RawQuery = q.Encode()
 			}
 
-			_, err = validator.ValidateRequest(req)
+			oasRequest := oas.NewOASRequest(req)
+
+			_, err = validator.ValidateRequest(oasRequest)
 			if tt.wantErr {
 				assert.Error(t, err)
 				if tt.wantErrMsg != "" {
@@ -97,7 +109,7 @@ func TestValidateRequest(t *testing.T) {
 }
 
 func TestComplexRequest(t *testing.T) {
-	manager := oas.NewOASManager(nil)
+	manager := oas.NewOASManager(nil, oas.FixedSelector("test"))
 	filePath := filepath.Join("..", "test_data", "advancedoas.swagger.io.json")
 	manager.LoadAPIFromFile("test", filePath)
 
@@ -173,9 +185,8 @@ func TestComplexRequest(t *testing.T) {
 		},
 	}
 
-	validator := NewValidator(manager)
-	err := validator.SetCurrentAPI("test")
-	assert.NoError(t, err)
+	spec, _ := manager.GetApiSpec("test")
+	validator := NewValidator(spec)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -194,7 +205,9 @@ func TestComplexRequest(t *testing.T) {
 				req.URL.RawQuery = q.Encode()
 			}
 
-			_, err = validator.ValidateRequest(req)
+			oasRequest := oas.NewOASRequest(req)
+
+			_, err = validator.ValidateRequest(oasRequest)
 			if tt.wantErr {
 				assert.Error(t, err)
 				if tt.wantErrMsg != "" {
@@ -208,13 +221,12 @@ func TestComplexRequest(t *testing.T) {
 }
 
 func TestValidateWithDiscriminator(t *testing.T) {
-	manager := oas.NewOASManager(nil)
+	manager := oas.NewOASManager(nil, oas.FixedSelector("test"))
 	filePath := filepath.Join("..", "test_data", "advancedoas.swagger.io.json")
 	manager.LoadAPIFromFile("test", filePath)
 
-	validator := NewValidator(manager)
-	err := validator.SetCurrentAPI("test")
-	assert.NoError(t, err)
+	spec, _ := manager.GetApiSpec("test")
+	validator := NewValidator(spec)
 
 	dogJson := `{
         "pet_type": "Dog",

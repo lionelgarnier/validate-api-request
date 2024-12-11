@@ -3,49 +3,59 @@ package oas
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
+	"regexp"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/zeebo/xxh3"
 )
 
+// APISelector is a function that determines the API specification for a given request.
 type Manager interface {
 	LoadAPI(name string, content []byte) error
-	GetApiSpec(name string) (*APISpec, bool)
+	GetApiSpec(name string) (*APISpec, error)
 	CleanApiSpec()
 	EvictApiSpec(name string)
 	EvictAllApiSpecs()
 	GetApiSpecs() map[string]*APISpec
 }
 
+// APISelector is a function that determines the API specification for a given request.
 type OASManager struct {
-	apiSpecs map[string]*APISpec // Maps API name/version to context
-	config   *CacheConfig
-	mu       sync.RWMutex
+	apiSpecs    map[string]*APISpec // Maps API name/version to context
+	config      *CacheConfig
+	apiSelector APISelector
+	mu          sync.RWMutex
 }
 
+// APISelector is a function that determines the API specification for a given request.
 type APISpec struct {
 	openapi      string                // OpenAPI version
 	info         json.RawMessage       // Info
 	servers      []json.RawMessage     // Servers
-	Paths        map[string]*PathCache // Hot paths (L1)
-	Components   *ComponentCache       // Warm components (L2)
-	security     []json.RawMessage     // Security
+	Paths        map[string]*PathCache // Hot paths
+	Components   *ComponentCache       // Warm components
+	Security     []SecurityRequirement // Security
 	tags         []json.RawMessage     // Tags
 	externalDocs json.RawMessage       // ExternalDocs
-	rawOAS       []byte                // Original OAS content
 	hash         uint64                // Quick comparison
 	LastAccess   time.Time
 	HitCount     int64
 }
 
+// APISelector is a function that determines the API specification for a given request.
 type PathCache struct {
-	Item     *PathItem
-	Schemas  map[string]*Schema // Referenced schemas for this path
-	HitCount int64
+	Item          *PathItem
+	CompiledRegex *regexp.Regexp
+	Route         string
+	LastAccess    time.Time
+	HitCount      int64
 }
 
+// APISelector is a function that determines the API specification for a given request.
 type ComponentCache struct {
 	Schemas         map[string]*Schema
 	Responses       map[string]*Response
@@ -58,35 +68,69 @@ type ComponentCache struct {
 	Callbacks       map[string]*Callback
 }
 
-func NewOASManager(config *CacheConfig) *OASManager {
+type OASRequest struct {
+	Request *http.Request
+	Route   string
+}
+
+func NewOASRequest(r *http.Request) *OASRequest {
+	return &OASRequest{Request: r}
+}
+
+// NewOASManager creates a new OAS manager with the given configuration and API selector.
+func NewOASManager(config *CacheConfig, selector APISelector) *OASManager {
 	if config == nil {
-		config = &CacheConfig{
-			MaxAPIs:     10,
-			MinPathHits: 5,
-		}
+		config = DefaultCacheConfig()
 	}
 
 	return &OASManager{
-		apiSpecs: make(map[string]*APISpec),
-		config:   config,
-		mu:       sync.RWMutex{},
+		apiSpecs:    make(map[string]*APISpec),
+		config:      config,
+		apiSelector: selector,
+		mu:          sync.RWMutex{},
 	}
 }
 
+// GetApiSpecForRequest returns the API specification for the given request.
+func (m *OASManager) GetApiSpecForRequest(r *http.Request) (*APISpec, error) {
+	apiName := m.apiSelector(r)
+	if apiName == "" {
+		return nil, fmt.Errorf("could not determine API specification")
+	}
+
+	spec, err := m.GetApiSpec(apiName)
+	if err != nil {
+		return nil, err
+	}
+
+	return spec, nil
+}
+
+// LoadAPI loads an API specification into the manager.
 func (m *OASManager) LoadAPI(name string, content []byte) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	hash := xxh3.HashString(string(content))
 
+	// Check if API exists with same hash
+	if existing, exists := m.apiSpecs[name]; exists {
+		if existing.hash == hash {
+			// Same content, skip loading
+			return nil
+		}
+		// Different content, remove old spec and continue
+		delete(m.apiSpecs, name)
+	}
+
 	// Parse initial structure
 	var raw struct {
-		Info         json.RawMessage   `json:"info"`
-		OpenAPI      string            `json:"openapi"`
-		Servers      []json.RawMessage `json:"servers"`
-		Security     []json.RawMessage `json:"security"`
-		Tags         []json.RawMessage `json:"tags"`
-		ExternalDocs json.RawMessage   `json:"externalDocs"`
+		Info         json.RawMessage       `json:"info"`
+		OpenAPI      string                `json:"openapi"`
+		Servers      []json.RawMessage     `json:"servers"`
+		Security     []SecurityRequirement `json:"security"`
+		Tags         []json.RawMessage     `json:"tags"`
+		ExternalDocs json.RawMessage       `json:"externalDocs"`
 	}
 
 	if err := json.Unmarshal(content, &raw); err != nil {
@@ -111,10 +155,9 @@ func (m *OASManager) LoadAPI(name string, content []byte) error {
 		Paths:        paths,
 		Components:   components,
 		servers:      raw.Servers,
-		security:     raw.Security,
+		Security:     raw.Security,
 		tags:         raw.Tags,
 		externalDocs: raw.ExternalDocs,
-		rawOAS:       content,
 		hash:         hash,
 		LastAccess:   time.Now(),
 		HitCount:     0,
@@ -124,6 +167,7 @@ func (m *OASManager) LoadAPI(name string, content []byte) error {
 	return nil
 }
 
+// LoadAPIFromFile loads an API specification from a file into the manager.
 func (m *OASManager) LoadAPIFromFile(name, filePath string) error {
 	content, err := os.ReadFile(filePath)
 	if err != nil {
@@ -133,35 +177,21 @@ func (m *OASManager) LoadAPIFromFile(name, filePath string) error {
 	return m.LoadAPI(name, content)
 }
 
-func (m *OASManager) GetApiSpec(name string) (*APISpec, bool) {
+// GetApiSpec returns the API specification for the given name.
+func (m *OASManager) GetApiSpec(name string) (*APISpec, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	spec, exists := m.apiSpecs[name]
-	return spec, exists
+	if exists {
+		spec.HitCount++
+		spec.LastAccess = time.Now()
+		return spec, nil
+	}
+	return nil, fmt.Errorf("API spec '%s' not found", name)
 }
 
-func (m *OASManager) CleanApiSpec() {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	// Remove least used APIs
-	for name, spec := range m.apiSpecs {
-		if time.Since(spec.LastAccess) > m.config.APIExpiryTime {
-			delete(m.apiSpecs, name)
-		}
-	}
-
-	// Clear cold paths
-	for _, spec := range m.apiSpecs {
-		for path, cache := range spec.Paths {
-			if cache.HitCount < m.config.MinPathHits {
-				delete(spec.Paths, path)
-			}
-		}
-	}
-}
-
+// EvictApiSpec removes the API specification with the given name.
 func (m *OASManager) EvictApiSpec(name string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -169,6 +199,7 @@ func (m *OASManager) EvictApiSpec(name string) {
 	delete(m.apiSpecs, name)
 }
 
+// EvictAllApiSpecs removes all API specifications from the manager.
 func (m *OASManager) EvictAllApiSpecs() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -176,6 +207,7 @@ func (m *OASManager) EvictAllApiSpecs() {
 	m.apiSpecs = make(map[string]*APISpec)
 }
 
+// GetApiSpecs returns all API specifications in the manager.
 func (m *OASManager) GetApiSpecs() map[string]*APISpec {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -183,6 +215,7 @@ func (m *OASManager) GetApiSpecs() map[string]*APISpec {
 	return m.apiSpecs
 }
 
+// DefaultCacheConfig returns a default cache configuration.
 func parsePathsFromRaw(content []byte) (map[string]*PathCache, error) {
 	var raw struct {
 		Paths map[string]json.RawMessage `json:"paths"`
@@ -199,16 +232,34 @@ func parsePathsFromRaw(content []byte) (map[string]*PathCache, error) {
 			return nil, err
 		}
 
-		paths[path] = &PathCache{
+		// Initialize PathCache
+		pathCache := &PathCache{
 			Item:     &pathItem,
-			Schemas:  make(map[string]*Schema),
+			Route:    path,
 			HitCount: 0,
 		}
+
+		// If the path contains parameters, compile the regex
+		if strings.Contains(path, "{") && strings.Contains(path, "}") {
+			regexPattern := pathTemplateToRegex(path)
+			compiledRegex := regexp.MustCompile(regexPattern)
+			pathCache.CompiledRegex = compiledRegex
+		}
+
+		paths[path] = pathCache
 	}
 
 	return paths, nil
 }
 
+// pathTemplateToRegex converts a path template to a regex pattern
+func pathTemplateToRegex(pathTemplate string) string {
+	// Replace path parameters with regex patterns
+	regexPattern := regexp.MustCompile(`\{([^}]+)\}`).ReplaceAllString(pathTemplate, `([^/]+)`)
+	return "^" + regexPattern + "$"
+}
+
+// parseComponentHeaders parses the components section of an OAS document.
 func parseComponentHeaders(content []byte) (*ComponentCache, error) {
 	var raw struct {
 		Components Components `json:"components"`
@@ -238,6 +289,7 @@ func parseComponentHeaders(content []byte) (*ComponentCache, error) {
 	}, nil
 }
 
+// mapToPointers converts a map of values to a map of pointers.
 func mapToPointers[T any](m map[string]T) map[string]*T {
 	pointers := make(map[string]*T, len(m))
 	for key, value := range m {

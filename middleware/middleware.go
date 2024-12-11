@@ -9,42 +9,46 @@ import (
 
 // OASMiddleware validates requests against OpenAPI specs
 type OASMiddleware struct {
-	next        http.Handler
-	manager     *oas.OASManager
-	validator   validation.Validator
-	apiSelector oas.APISelector
+	next      http.Handler
+	manager   *oas.OASManager
+	validator validation.Validator
 }
 
+// NewMiddleware creates a new OASMiddleware
 func NewMiddleware(next http.Handler, config *oas.CacheConfig, selector oas.APISelector) *OASMiddleware {
-	manager := oas.NewOASManager(config)
-	validator := validation.NewValidator(manager)
+	manager := oas.NewOASManager(config, selector)
+	validator := validation.NewValidator(nil)
 
 	return &OASMiddleware{
-		next:        next,
-		manager:     manager,
-		validator:   validator,
-		apiSelector: selector,
+		next:      next,
+		manager:   manager,
+		validator: validator,
 	}
 }
 
+// ServeHTTP validates the request against the OpenAPI spec
 func (m *OASMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	apiName := m.apiSelector(r)
-	if apiName == "" {
-		http.Error(w, "could not determine API specification", http.StatusBadRequest)
-		return
-	}
-
-	err := m.validator.SetCurrentAPI(apiName)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	_, err = m.validator.ValidateRequest(r)
+	// Get API spec for request
+	spec, err := m.manager.GetApiSpecForRequest(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
+	// Set spec in validator
+	m.validator.SetApiSpec(spec)
+
+	oasRequest := &oas.OASRequest{
+		Request: r,
+		Route:   "",
+	}
+
+	// Validate request
+	if ok, err := m.validator.ValidateRequest(oasRequest); !ok {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Call next handler
 	m.next.ServeHTTP(w, r)
 }

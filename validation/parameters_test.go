@@ -10,7 +10,7 @@ import (
 
 func TestValidateParameters(t *testing.T) {
 
-	manager := oas.NewOASManager(nil)
+	manager := oas.NewOASManager(nil, oas.FixedSelector("test"))
 
 	// Load test API spec
 	content := []byte(`{
@@ -78,15 +78,15 @@ func TestValidateParameters(t *testing.T) {
 	err := manager.LoadAPI("test", content)
 	assert.NoError(t, err)
 
-	validator := NewValidator(manager)
-	err = validator.SetCurrentAPI("test")
+	spec, _ := manager.GetApiSpec("test")
+	validator := NewValidator(spec)
+
 	assert.NoError(t, err)
 
 	tests := []struct {
 		name          string
 		method        string
 		path          string
-		route         string
 		setupRequest  func(*http.Request)
 		expectedError string
 	}{
@@ -94,7 +94,6 @@ func TestValidateParameters(t *testing.T) {
 			name:   "Valid path parameter",
 			method: http.MethodGet,
 			path:   "/pet/123",
-			route:  "/pet/{petId}",
 			setupRequest: func(r *http.Request) {
 			},
 			expectedError: "",
@@ -103,7 +102,6 @@ func TestValidateParameters(t *testing.T) {
 			name:   "Invalid path parameter type",
 			method: http.MethodGet,
 			path:   "/pet/abc",
-			route:  "/pet/{petId}",
 			setupRequest: func(r *http.Request) {
 			},
 			expectedError: "invalid type for parameter 'petId'",
@@ -112,7 +110,6 @@ func TestValidateParameters(t *testing.T) {
 			name:   "Missing required query parameter",
 			method: http.MethodGet,
 			path:   "/pet/findByStatus",
-			route:  "/pet/findByStatus",
 			setupRequest: func(r *http.Request) {
 			},
 			expectedError: "missing required parameter 'status'",
@@ -121,7 +118,6 @@ func TestValidateParameters(t *testing.T) {
 			name:   "Valid query parameter",
 			method: http.MethodGet,
 			path:   "/pet/findByStatus",
-			route:  "/pet/findByStatus",
 			setupRequest: func(r *http.Request) {
 				q := r.URL.Query()
 				q.Add("status", "available")
@@ -133,7 +129,6 @@ func TestValidateParameters(t *testing.T) {
 			name:   "Invalid query parameter value",
 			method: http.MethodGet,
 			path:   "/pet/findByStatus",
-			route:  "/pet/findByStatus",
 			setupRequest: func(r *http.Request) {
 				q := r.URL.Query()
 				q.Add("status", "invalid")
@@ -145,7 +140,6 @@ func TestValidateParameters(t *testing.T) {
 			name:   "Valid multiple path parameters",
 			method: http.MethodGet,
 			path:   "/pet/123/owner/456",
-			route:  "/pet/{petId}/owner/{ownerId}",
 			setupRequest: func(r *http.Request) {
 			},
 			expectedError: "",
@@ -154,7 +148,6 @@ func TestValidateParameters(t *testing.T) {
 			name:   "Invalid petId path parameter",
 			method: http.MethodGet,
 			path:   "/pet/abc/owner/456",
-			route:  "/pet/{petId}/owner/{ownerId}",
 			setupRequest: func(r *http.Request) {
 			},
 			expectedError: "invalid type for parameter 'petId'",
@@ -163,7 +156,6 @@ func TestValidateParameters(t *testing.T) {
 			name:   "Invalid ownerId path parameter",
 			method: http.MethodGet,
 			path:   "/pet/123/owner/abc",
-			route:  "/pet/{petId}/owner/{ownerId}",
 			setupRequest: func(r *http.Request) {
 			},
 			expectedError: "invalid type for parameter 'ownerId'",
@@ -177,7 +169,9 @@ func TestValidateParameters(t *testing.T) {
 
 			tt.setupRequest(req)
 
-			ok, err := validator.ValidateParameters(req, tt.route)
+			oasRequest := oas.NewOASRequest(req)
+
+			ok, err := validator.ValidateParameters(oasRequest)
 			if tt.expectedError == "" {
 				assert.True(t, ok)
 				assert.NoError(t, err)
