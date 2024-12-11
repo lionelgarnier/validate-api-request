@@ -9,23 +9,16 @@ import (
 
 // ValidateRequestPath validates the request path
 func (v *DefaultValidator) ValidateParameters(req *oas.OASRequest) (bool, error) {
-	pathCache, err := v.ResolveRequestPath(req)
-	if err != nil {
-		return false, err
+	if req.PathItem == nil || req.Route == "" || req.Operation == nil {
+		_, err := v.ValidateRequestMethod(req)
+		if err != nil {
+			return false, err
+		}
 	}
-	return v.ValidateParametersForPath(req, pathCache)
-}
 
-// ValidateParameters validates the request parameters for a given pathCache
-func (v *DefaultValidator) ValidateParametersForPath(req *oas.OASRequest, pathCache *oas.PathCache) (bool, error) {
-	pathItem := pathCache.Item
-	method := strings.ToUpper(req.Request.Method)
-
-	// Look for route & method in spec
-	operation := v.GetOperation(pathItem, method)
-	if operation == nil {
-		return false, fmt.Errorf("method '%s' not allowed for path '%s'", method, pathCache.Route)
-	}
+	pathItem := req.PathItem
+	route := req.Route
+	operation := req.Operation
 
 	parameters := mergeParameters(pathItem.Parameters, operation.Parameters)
 	var err error
@@ -47,7 +40,7 @@ func (v *DefaultValidator) ValidateParametersForPath(req *oas.OASRequest, pathCa
 		case "header":
 			value = req.Request.Header.Get(param.Name)
 		case "path":
-			value = extractPathParam(req.Request.URL.Path, pathCache, param.Name)
+			value = extractPathParam(req.Request.URL.Path, route, param.Name)
 		case "cookie":
 			cookie, err := req.Request.Cookie(param.Name)
 			if err != nil {
@@ -94,8 +87,8 @@ func mergeParameters(pathParams, opParams []oas.Parameter) []oas.Parameter {
 }
 
 // extractPathParam extracts the value of a path parameter from the request path
-func extractPathParam(requestPath string, pathCache *oas.PathCache, paramName string) string {
-	routeParts := strings.Split(pathCache.Route, "/")
+func extractPathParam(requestPath string, route string, paramName string) string {
+	routeParts := strings.Split(route, "/")
 	pathParts := strings.Split(requestPath, "/")
 	for i, part := range routeParts {
 		if strings.HasPrefix(part, "{") && strings.HasSuffix(part, "}") {

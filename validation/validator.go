@@ -46,25 +46,19 @@ func (v *DefaultValidator) ValidateRequest(req *oas.OASRequest) (bool, error) {
 		return false, fmt.Errorf("no API spec selected, call SetCurrentAPI first")
 	}
 
-	pathCache, err := v.ResolveRequestPath(req)
-	if err != nil {
+	if ok, err := v.ValidateRequestPath(req); !ok {
 		return false, err
 	}
-
-	/* Not required as resolved paths should always be valid
-	if ok, err := v.ValidateRequestPath(req, route); !ok {
-		return false, err
-	}*/
-	if ok, err := v.ValidateRequestMethodForPath(req, pathCache); !ok {
+	if ok, err := v.ValidateRequestMethod(req); !ok {
 		return false, err
 	}
-	if ok, err := v.ValidateParametersForPath(req, pathCache); !ok {
+	if ok, err := v.ValidateParameters(req); !ok {
 		return false, err
 	}
-	if ok, err := v.ValidateRequestBodyForPath(req, pathCache); !ok {
+	if ok, err := v.ValidateRequestBody(req); !ok {
 		return false, err
 	}
-	if ok, err := v.ValidateSecurityForPath(req, pathCache); !ok {
+	if ok, err := v.ValidateSecurity(req); !ok {
 		return false, err
 	}
 	return true, nil
@@ -122,6 +116,25 @@ func (v *DefaultValidator) ValidateSchema(value interface{}, schema *oas.Schema)
 	}
 
 	return v.ValidateSchemaType(value, schema)
+}
+
+// GetRequestOperation returns the operation for a given request
+func (v *DefaultValidator) GetRequestOperation(req *oas.OASRequest) (*oas.Operation, error) {
+	pathCache, err := v.ResolveRequestPath(req)
+	if err != nil {
+		return nil, err
+	}
+
+	pathItem := pathCache.Item
+	method := strings.ToUpper(req.Request.Method)
+
+	// Look for route & method in spec
+	operation := v.GetOperation(pathItem, method)
+	if operation == nil {
+		return nil, fmt.Errorf("method '%s' not allowed for path '%s'", method, pathCache.Route)
+	}
+
+	return operation, nil
 }
 
 // validateArray validates an array value against the schema

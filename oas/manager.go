@@ -69,8 +69,10 @@ type ComponentCache struct {
 }
 
 type OASRequest struct {
-	Request *http.Request
-	Route   string
+	Request   *http.Request
+	Route     string
+	PathItem  *PathItem
+	Operation *Operation
 }
 
 func NewOASRequest(r *http.Request) *OASRequest {

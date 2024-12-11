@@ -10,22 +10,14 @@ import (
 
 // ValidateRequestPath validates the request path
 func (v *DefaultValidator) ValidateSecurity(req *oas.OASRequest) (bool, error) {
-	pathCache, err := v.ResolveRequestPath(req)
-	if err != nil {
-		return false, err
+	if req.PathItem == nil || req.Route == "" || req.Operation == nil {
+		_, err := v.ValidateRequestMethod(req)
+		if err != nil {
+			return false, err
+		}
 	}
-	return v.ValidateSecurityForPath(req, pathCache)
-}
 
-// ValidateSecurity validates the request security for a given pathCache
-func (v *DefaultValidator) ValidateSecurityForPath(req *oas.OASRequest, pathCache *oas.PathCache) (bool, error) {
-
-	method := strings.ToUpper(req.Request.Method)
-	operation := v.GetOperation(pathCache.Item, method)
-
-	if operation == nil {
-		return false, fmt.Errorf("method '%s' not allowed for path '%s'", method, pathCache.Route)
-	}
+	operation := req.Operation
 
 	// Get security requirements (operation-level or global)
 	securityRequirements := operation.Security

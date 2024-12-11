@@ -44,6 +44,7 @@ func (v *DefaultValidator) ResolveRequestPath(req *oas.OASRequest) (*oas.PathCac
 
 	// Set route in request
 	req.Route = pathCache.Route
+	req.PathItem = pathCache.Item
 	return pathCache, nil
 
 }
@@ -60,35 +61,24 @@ func (v *DefaultValidator) ValidateRequestPath(req *oas.OASRequest) (bool, error
 // ValidateRequestPath validates the request path
 func (v *DefaultValidator) ValidateRequestMethod(req *oas.OASRequest) (bool, error) {
 
-	pathCache, err := v.ResolveRequestPath(req)
-	if err != nil {
-		return false, err
+	if req.PathItem == nil || req.Route == "" {
+		_, err := v.ResolveRequestPath(req)
+		if err != nil {
+			return false, err
+		}
 	}
 
-	return v.ValidateRequestMethodForPath(req, pathCache)
-}
-
-// ValidateRequestPath validates the request path for a given pathCache
-func (v *DefaultValidator) ValidateRequestMethodForPath(req *oas.OASRequest, pathCache *oas.PathCache) (bool, error) {
 	method := strings.ToUpper(req.Request.Method)
-	pathItem := pathCache.Item
-	route := pathCache.Route
+	pathItem := req.PathItem
+	route := req.Route
 
-	// Check if method is allowed for path
-	methodMap := map[string]*oas.Operation{
-		http.MethodGet:     pathItem.Get,
-		http.MethodPut:     pathItem.Put,
-		http.MethodPost:    pathItem.Post,
-		http.MethodDelete:  pathItem.Delete,
-		http.MethodOptions: pathItem.Options,
-		http.MethodHead:    pathItem.Head,
-		http.MethodPatch:   pathItem.Patch,
-		http.MethodTrace:   pathItem.Trace,
+	operation := v.GetOperation(pathItem, method)
+	if operation == nil {
+		return false, fmt.Errorf("method '%s' not allowed for path '%s'", method, route)
 	}
-	if operation := methodMap[method]; operation != nil {
-		return true, nil
-	}
-	return false, fmt.Errorf("method '%s' not allowed for path '%s'", method, route)
+
+	req.Operation = operation
+	return true, nil
 
 }
 

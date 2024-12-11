@@ -3,30 +3,20 @@ package validation
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/lionelgarnier/validate-api-request/oas"
 )
 
 // ValidateRequestPath validates the request path
 func (v *DefaultValidator) ValidateRequestBody(req *oas.OASRequest) (bool, error) {
-	pathCache, err := v.ResolveRequestPath(req)
-	if err != nil {
-		return false, err
+	if req.PathItem == nil || req.Route == "" || req.Operation == nil {
+		_, err := v.ValidateRequestMethod(req)
+		if err != nil {
+			return false, err
+		}
 	}
-	return v.ValidateRequestBodyForPath(req, pathCache)
-}
 
-// ValidateRequestBody validates the request body for a given pathCache
-func (v *DefaultValidator) ValidateRequestBodyForPath(req *oas.OASRequest, pathCache *oas.PathCache) (bool, error) {
-	pathItem := pathCache.Item
-	method := strings.ToUpper(req.Request.Method)
-
-	// Look for route & method in spec
-	operation := v.GetOperation(pathItem, method)
-	if operation == nil {
-		return false, fmt.Errorf("method '%s' not allowed for path '%s'", method, pathCache.Route)
-	}
+	operation := req.Operation
 
 	requestBody := operation.RequestBody
 	// Skip validation if no request body defined
