@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"path/filepath"
 
 	"github.com/lionelgarnier/validate-api-request/oas"
 	"github.com/lionelgarnier/validate-api-request/validation"
@@ -14,9 +15,28 @@ type OASMiddleware struct {
 	validator validation.Validator
 }
 
+type Config struct {
+	selector    oas.APISelector
+	cacheconfig *oas.CacheConfig
+}
+
+func CreateConfig() *Config {
+	return &Config{}
+}
+
 // NewMiddleware creates a new OASMiddleware
-func NewMiddleware(next http.Handler, config *oas.CacheConfig, selector oas.APISelector) *OASMiddleware {
-	manager := oas.NewOASManager(config, selector)
+func New(next http.Handler, config *Config) *OASMiddleware {
+	manager := oas.NewOASManager(config.cacheconfig, config.selector)
+
+	//load API OAS from file
+	var filePath string
+
+	filePath = filepath.Join("..", "test_data", "petstore3.swagger.io_api_json.json")
+	manager.LoadAPIFromFile("petstore", filePath)
+
+	filePath = filepath.Join("..", "test_data", "advancedoas.swagger.io.json")
+	manager.LoadAPIFromFile("advancedoas", filePath)
+
 	validator := validation.NewValidator(nil)
 
 	return &OASMiddleware{
@@ -38,10 +58,7 @@ func (m *OASMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Set spec in validator
 	m.validator.SetApiSpec(spec)
 
-	oasRequest := &oas.OASRequest{
-		Request: r,
-		Route:   "",
-	}
+	oasRequest := oas.NewOASRequest(r)
 
 	// Validate request
 	if ok, err := m.validator.ValidateRequest(oasRequest); !ok {

@@ -3,7 +3,6 @@ package middleware
 import (
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"testing"
 
 	"github.com/lionelgarnier/validate-api-request/oas"
@@ -19,21 +18,15 @@ func TestMiddleware(t *testing.T) {
 		w.Write([]byte("OK"))
 	})
 
+	config := CreateConfig()
+	config.cacheconfig = oas.DefaultCacheConfig()
+	config.selector = selector
+
 	// Create middleware
-	middleware := NewMiddleware(
+	middleware := New(
 		handler,
-		oas.DefaultCacheConfig(),
-		selector,
+		config,
 	)
-
-	//load API OAS from file
-	var filePath string
-
-	filePath = filepath.Join("..", "test_data", "petstore3.swagger.io_api_json.json")
-	middleware.manager.LoadAPIFromFile("petstore", filePath)
-
-	filePath = filepath.Join("..", "test_data", "advancedoas.swagger.io.json")
-	middleware.manager.LoadAPIFromFile("advancedoas", filePath)
 
 	// Create test request
 	req, err := http.NewRequest("GET", "/pet/10", nil)
