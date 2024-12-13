@@ -13,7 +13,7 @@ import (
 
 func TestValidateRequest(t *testing.T) {
 	manager := oas.NewOASManager(nil, oas.FixedSelector(map[string]string{"test": "test"}))
-	filePath := filepath.Join("..", "test_data", "petstore3.swagger.io_api_json.json")
+	filePath := filepath.Join("..", "oas_files", "petstore3.swagger.io_api_json.json")
 	manager.LoadAPIFromFile("test", filePath)
 
 	tests := []struct {
@@ -110,7 +110,7 @@ func TestValidateRequest(t *testing.T) {
 
 func TestComplexRequest(t *testing.T) {
 	manager := oas.NewOASManager(nil, oas.FixedSelector(map[string]string{"test": "test"}))
-	filePath := filepath.Join("..", "test_data", "advancedoas.swagger.io.json")
+	filePath := filepath.Join("..", "oas_files", "advancedoas.swagger.io.json")
 	manager.LoadAPIFromFile("test", filePath)
 
 	tests := []struct {
@@ -222,7 +222,7 @@ func TestComplexRequest(t *testing.T) {
 
 func TestValidateWithDiscriminator(t *testing.T) {
 	manager := oas.NewOASManager(nil, oas.FixedSelector(map[string]string{"test": "test"}))
-	filePath := filepath.Join("..", "test_data", "advancedoas.swagger.io.json")
+	filePath := filepath.Join("..", "oas_files", "advancedoas.swagger.io.json")
 	manager.LoadAPIFromFile("test", filePath)
 
 	spec, _ := manager.GetApiSpec("test")
