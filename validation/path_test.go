@@ -10,7 +10,7 @@ import (
 
 func TestResolveRequestPath(t *testing.T) {
 
-	manager := oas.NewOASManager(nil, oas.FixedSelector("test"))
+	manager := oas.NewOASManager(nil, oas.FixedSelector(map[string]string{"test": "test"}))
 
 	// Create test API spec
 	content := []byte(`{
@@ -91,7 +91,7 @@ func TestResolveRequestPath(t *testing.T) {
 
 func TestValidateRequestPath(t *testing.T) {
 
-	manager := oas.NewOASManager(nil, oas.FixedSelector("test"))
+	manager := oas.NewOASManager(nil, oas.FixedSelector(map[string]string{"test": "test"}))
 
 	// Load test API spec
 	content := []byte(`{
@@ -170,7 +170,7 @@ func TestValidateRequestMethod(t *testing.T) {
 		MinPathHits: 5,
 	}
 
-	manager := oas.NewOASManager(config, oas.FixedSelector("test"))
+	manager := oas.NewOASManager(config, oas.FixedSelector(map[string]string{"test": "test"}))
 
 	// Load test API spec
 	content := []byte(`{

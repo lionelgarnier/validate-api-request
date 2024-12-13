@@ -12,7 +12,7 @@ import (
 )
 
 func TestValidateRequest(t *testing.T) {
-	manager := oas.NewOASManager(nil, oas.FixedSelector("test"))
+	manager := oas.NewOASManager(nil, oas.FixedSelector(map[string]string{"test": "test"}))
 	filePath := filepath.Join("..", "test_data", "petstore3.swagger.io_api_json.json")
 	manager.LoadAPIFromFile("test", filePath)
 
@@ -109,7 +109,7 @@ func TestValidateRequest(t *testing.T) {
 }
 
 func TestComplexRequest(t *testing.T) {
-	manager := oas.NewOASManager(nil, oas.FixedSelector("test"))
+	manager := oas.NewOASManager(nil, oas.FixedSelector(map[string]string{"test": "test"}))
 	filePath := filepath.Join("..", "test_data", "advancedoas.swagger.io.json")
 	manager.LoadAPIFromFile("test", filePath)
 
@@ -221,7 +221,7 @@ func TestComplexRequest(t *testing.T) {
 }
 
 func TestValidateWithDiscriminator(t *testing.T) {
-	manager := oas.NewOASManager(nil, oas.FixedSelector("test"))
+	manager := oas.NewOASManager(nil, oas.FixedSelector(map[string]string{"test": "test"}))
 	filePath := filepath.Join("..", "test_data", "advancedoas.swagger.io.json")
 	manager.LoadAPIFromFile("test", filePath)
 

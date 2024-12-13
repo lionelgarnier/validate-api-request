@@ -10,7 +10,7 @@ import (
 
 func TestValidateParameters(t *testing.T) {
 
-	manager := oas.NewOASManager(nil, oas.FixedSelector("test"))
+	manager := oas.NewOASManager(nil, oas.FixedSelector(map[string]string{"test": "test"}))
 
 	// Load test API spec
 	content := []byte(`{

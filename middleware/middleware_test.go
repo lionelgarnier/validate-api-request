@@ -3,30 +3,28 @@ package middleware
 import (
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
-
-	"github.com/lionelgarnier/validate-api-request/oas"
 )
 
 func TestMiddleware(t *testing.T) {
-	selector := oas.HostBasedSelector(map[string]string{
-		"api.pets.com":  "petstore",
-		"api.users.com": "userapi",
+	// Load configuration from YAML file
+	filePath := filepath.Join("..", "config.yaml")
+	config, err := LoadConfigFromFile(filePath)
+	if err != nil {
+		panic(err)
+	}
+
+	// Create your next handler (the final handler in the chain)
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Hello, World!"))
 	})
 
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("OK"))
-	})
-
-	config := CreateConfig()
-	config.cacheconfig = oas.DefaultCacheConfig()
-	config.selector = selector
-
-	// Create middleware
-	middleware := New(
-		handler,
-		config,
-	)
+	// Create the middleware
+	middleware, err := New(nextHandler, config)
+	if err != nil {
+		panic(err)
+	}
 
 	// Create test request
 	req, err := http.NewRequest("GET", "/pet/10", nil)

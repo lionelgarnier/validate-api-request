@@ -1,0 +1,36 @@
+apis:
+  - name: petstore
+    specFile: "../oas_files/petstore3.swagger.io_api_json.json"
+  - name: advancedoas
+    specFile: "../oas_files/advancedoas.swagger.io.json"
+  - name: inlineapi
+    specText: |
+      {
+        "openapi": "3.0.0",
+        "info": {
+            "title": "Test API",
+            "version": "1.0.0"
+        },
+        "paths": {
+            "/pets": {
+                "get": {}
+            },
+            "/pets/{petId}": {
+                "get": {},
+                "post": {},
+                "delete": {}
+            }
+        }
+      }
+selectorType: "host"
+selector:
+  api.pets.com: petstore
+  api.users.com: userapi
+  api.inline.com: inlineapi
+cacheConfig:
+  maxAPIs: 10
+  maxPathsPerAPI: 1000
+  pathExpiryTime: 24h
+  apiExpiryTime: 72h
+  minPathHits: 5
+  cleanupInterval: 1h

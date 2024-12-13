@@ -4,13 +4,17 @@ import (
 	"time"
 )
 
+type Duration struct {
+	time.Duration
+}
+
 type CacheConfig struct {
-	MaxAPIs         int           `json:"maxAPIs"`         // Maximum number of APIs to cache
-	MaxPathsPerAPI  int           `json:"maxPathsPerAPI"`  // Maximum paths per API
-	PathExpiryTime  time.Duration `json:"pathExpiryTime"`  // Time before path cache expires
-	APIExpiryTime   time.Duration `json:"apiExpiryTime"`   // Time before API cache expires
-	MinPathHits     int64         `json:"minPathHits"`     // Minimum hits to keep path cached
-	CleanupInterval time.Duration `json:"cleanupInterval"` // How often to run cleanup
+	MaxAPIs         int      `yaml:"maxAPIs" json:"maxAPIs"`
+	MaxPathsPerAPI  int      `yaml:"maxPathsPerAPI" json:"maxPathsPerAPI"`
+	PathExpiryTime  Duration `yaml:"pathExpiryTime" json:"pathExpiryTime"`
+	APIExpiryTime   Duration `yaml:"apiExpiryTime" json:"apiExpiryTime"`
+	MinPathHits     int64    `yaml:"minPathHits" json:"minPathHits"`
+	CleanupInterval Duration `yaml:"cleanupInterval" json:"cleanupInterval"`
 }
 
 // DefaultCacheConfig returns a default cache configuration
@@ -18,9 +22,23 @@ func DefaultCacheConfig() *CacheConfig {
 	return &CacheConfig{
 		MaxAPIs:         100,
 		MaxPathsPerAPI:  1000,
-		PathExpiryTime:  24 * time.Hour,
-		APIExpiryTime:   72 * time.Hour,
+		PathExpiryTime:  Duration{24 * time.Hour},
+		APIExpiryTime:   Duration{72 * time.Hour},
 		MinPathHits:     10,
-		CleanupInterval: time.Hour,
+		CleanupInterval: Duration{time.Hour},
 	}
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (d *Duration) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var s string
+	if err := unmarshal(&s); err != nil {
+		return err
+	}
+	duration, err := time.ParseDuration(s)
+	if err != nil {
+		return err
+	}
+	d.Duration = duration
+	return nil
 }

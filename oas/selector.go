@@ -8,7 +8,7 @@ import (
 type APISelector func(r *http.Request) string
 
 // HostBasedSelector returns an APISelector that selects an API based on the request host.
-func HostBasedSelector(hostMap map[string]string) APISelector {
+func HostSelector(hostMap map[string]string) APISelector {
 	return func(r *http.Request) string {
 		return hostMap[r.Host]
 	}
@@ -41,19 +41,37 @@ func PathPrefixSelector(prefixMap map[string]string) APISelector {
 */
 
 // HeaderSelector returns an APISelector that selects an API based on the value of a request header.
-func HeaderSelector(headerName string) APISelector {
+func HeaderSelector(headerMap map[string]string) APISelector {
 	return func(r *http.Request) string {
-		return r.Header.Get(headerName)
+		for _, headerName := range headerMap {
+			if value := r.Header.Get(headerName); value != "" {
+				return value
+			}
+		}
+		return ""
 	}
 }
 
 /* Ex:
-   versionSelector := HeaderSelector("X-API-Version")
+   versionSelector := HeaderSelector(map[string]string{
+	   "header-1": "X-API-Version",
+	   "header-2": "OAS-Name",
+	      })
+
 */
 
 // FixedSelector returns an APISelector that always selects the same API.
-func FixedSelector(apiName string) APISelector {
+func FixedSelector(fixedMap map[string]string) APISelector {
 	return func(r *http.Request) string {
-		return apiName
+		for _, apiName := range fixedMap {
+			return apiName
+		}
+		return ""
 	}
 }
+
+/* Ex:
+   fixedSelector := FixedSelector(map[string]string{
+   				   "default": "petstore",
+})
+*/
