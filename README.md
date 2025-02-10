@@ -1,6 +1,8 @@
 # validate-api-request
+validate-api-request is a middleware for validating HTTP requests against OpenAPI specifications. This ensures that incoming requests conform to the defined API contract, improving the reliability and robustness of your API.
 
-`validate-api-request` is a middleware for validating HTTP requests against OpenAPI specifications. This ensures that incoming requests conform to the defined API contract, improving the reliability and robustness of your API.
+validate-api-request stands out by working directly with the authentic OpenAPI Specification (OAS) structure, avoiding any conversion to a different format. This direct approach simplifies configuration, debugging, and integration of new OAS functionalities while ensuring accurate validations and maintaining compatibility with evolving industry standards.
+
 
 ## Features
 
@@ -9,6 +11,18 @@
 - Configurable via YAML
 - Supports both YAML and JSON OpenAPI specification formats
 - Flexible API selection mechanisms
+
+
+## High-Level Functionality
+
+- The middleware starts by loading OpenAPI specifications that are either stored locally (via a file) or provided as inline text.
+- It supports loading multiple specifications concurrently, making it suitable for environments with several APIs.
+- Upon initialization, the middleware loads and validates the OAS definitions to ensure they are correctly formatted and accessible.
+- For each incoming HTTP request, the middleware identifies the appropriate OAS based on criteria like host, header, or path prefix.
+- The middleware then checks the details of the request against the corresponding OpenAPI specification.
+- If there is any discrepancy or mismatch between the HTTP request and the OAS, the middleware returns a failure response to ensure API contract adherence.
+- This setup ensures reliability by validating requests in real-time against defined API contracts.
+
 
 ## Installation
 
