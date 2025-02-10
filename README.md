@@ -7,6 +7,7 @@
 - Validate requests against OpenAPI 3.0 specifications
 - Support for multiple APIs
 - Configurable via YAML
+- Supports both YAML and JSON OpenAPI specification formats
 - Flexible API selection mechanisms
 
 ## Installation
@@ -61,7 +62,7 @@ cacheConfig:
 
 ### Parameters
 
-- `apis`: List of APIs to be loaded.
+- `apis`: List of APIs to be loaded. `specFile` or `specText` must be specified for each API
         - `name`: Name of the API.
         - `specFile`: Path to the OpenAPI specification file.
         - `specText`: Inline OpenAPI specification text.
@@ -177,8 +178,5 @@ func TestMiddleware(t *testing.T) {
 
 ## License
 
-This project is licensed under the Apache 2.0 License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
-## Contact
-
-For more information, please contact the API team at [apiteam@swagger.io](mailto:apiteam@swagger.io).
